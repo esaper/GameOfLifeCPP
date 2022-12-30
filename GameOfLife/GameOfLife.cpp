@@ -1,5 +1,4 @@
 #include <iostream>
-#include <list>
 #include <map>
 #include <set>
 #include <string>
@@ -83,14 +82,15 @@ void toggleCell(cellLoc mousePos);
 void updateCell(cellLoc cell);
 
 
-void createRandom()
+void createRandom() 
 {
+	int gridX, gridY;
 	// Create random cells within visible window
 	for (int i = 0; i < numCols * numRows; i++)
 	{
-		int gridX = (rand() % numCols) + get<0>(topLeft);
-		int gridY = (rand() % numRows) + get<1>(topLeft);
-		if (cells.find({ gridX, gridY }) == cells.end())
+		gridX = (rand() % numCols) + get<0>(topLeft);
+		gridY = (rand() % numRows) + get<1>(topLeft);
+		if (cells.find({gridX, gridY}) == cells.end())
 		{
 			cells[{gridX, gridY}] = { 1, 1, 0 };
 		}
@@ -98,7 +98,7 @@ void createRandom()
 		{
 			get<NEXT_STATE>(cells[{gridX, gridY}]) = 1 - get<CURR_STATE>(cells[{gridX, gridY}]);
 		}
-		updateCell({ gridX, gridY });
+		updateCell({gridX, gridY});
 	}
 	/*
 	Flip screen
@@ -119,6 +119,7 @@ void drawCell(int x, int y, int state)
 		*/
 	}
 }
+
 
 
 void moveScreen(cellLoc centerPoint)
@@ -180,8 +181,8 @@ void setNextState()
 
 void toggleCell(cellLoc mousePos)
 {
-	int x = get<0>(mousePos) / (CELL_SIZE + 1) + get<0>(topLeft);
-	int y = get<1>(mousePos) / (CELL_SIZE + 1) + get<1>(topLeft);
+	int x = get<0>(mousePos);	// / (CELL_SIZE + 1) + get<0>(topLeft);
+	int y = get<1>(mousePos);	// / (CELL_SIZE + 1) + get<1>(topLeft);
 	if (cells.find({ x, y }) == cells.end())
 	{
 		// Create new cell
@@ -226,6 +227,25 @@ void updateCell(cellLoc cell)
 		get<NUM_NEIGHBORS>(cells[{x0, y0}])--;  // Don't count self
 		liveCells++;
 	}
+	else
+	{
+		for (int y = y0 - 1; y < y0 + 2; y++)
+		{
+			for (int x = x0 - 1; x < x0 + 2; x++)
+			{
+				if (x != x0 || y != y0)
+				{
+					get<NUM_NEIGHBORS>(cells[{x, y}])--;
+				}
+				if (get<CURR_STATE>(cells[{x, y}]) == 0 && get<NUM_NEIGHBORS>(cells[{x, y}]) == 0)
+				{
+					// Neighbor is inactive and has no active neighbors, so remove
+					cellsToRemove.insert({ x, y });
+				}
+			}
+		}
+		liveCells--;
+	}
 	drawCell(x0, y0, get<CURR_STATE>(cells[cell]));
 }
 
@@ -236,10 +256,20 @@ int main()
 	Initialize window
 	*/
 
+	/*
+	Glider
+	*/
+	toggleCell({ 0, 0 });
+	toggleCell({ 1, 0 });
+	toggleCell({ 2, 0 });
+	toggleCell({ 2, 1 });
+	toggleCell({ 1, 2 });
+	/*
+	*/
 
 	srand(time(0));
 	bool running = true;
-	bool paused = true;
+	bool paused = false;	// Should normally be initialized to true
 	bool singleFrame = false;
 
 	while (running)
@@ -293,6 +323,10 @@ int main()
 			Update display
 			Update window caption
 			*/
+		}
+		if (frame % 1000 == 0)
+		{
+			cout << "Frame: " << frame << "   Cells: " << liveCells << endl;
 		}
 	}
 }
