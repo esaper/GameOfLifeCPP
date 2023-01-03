@@ -9,8 +9,30 @@
 using namespace std;
 
 
-typedef tuple<int, int> cellLoc;
-typedef tuple<int, int, int> cellData;
+//typedef tuple<int, int> cellLoc;
+//typedef tuple<int, int, int> cellData;
+
+struct cellLoc
+{
+	int x, y;
+
+	// I don't pretend to quite understand the following, but it is necessary for this struct to work as the key to a map.
+	// Adapted from https://dawnarc.com/2019/09/c-how-to-use-a-struct-as-key-in-a-std-map/
+	bool operator==(const cellLoc& o) const
+	{
+		return x == o.x && y == o.y;
+	}
+
+	bool operator<(const cellLoc& o)const
+	{
+		return x < o.x || (x == o.x && y < o.y);
+	}
+};
+
+struct cellData
+{
+	int currState, nextState, numNeighbors;
+};
 
 
 struct ruleSet
@@ -88,15 +110,15 @@ void createRandom()
 	// Create random cells within visible window
 	for (int i = 0; i < numCols * numRows; i++)
 	{
-		gridX = (rand() % numCols) + get<0>(topLeft);
-		gridY = (rand() % numRows) + get<1>(topLeft);
+		gridX = (rand() % numCols) + topLeft.x;
+		gridY = (rand() % numRows) + topLeft.y;
 		if (cells.find({gridX, gridY}) == cells.end())
 		{
 			cells[{gridX, gridY}] = { 1, 1, 0 };
 		}
 		else
 		{
-			get<NEXT_STATE>(cells[{gridX, gridY}]) = 1 - get<CURR_STATE>(cells[{gridX, gridY}]);
+			cells[{gridX, gridY}].nextState = 1 - cells[{gridX, gridY}].currState;
 		}
 		updateCell({gridX, gridY});
 	}
@@ -109,11 +131,11 @@ void createRandom()
 void drawCell(int x, int y, int state)
 {
 	// No need to draw if cell does not appear in the window
-	if (x >= get<0>(topLeft) && x < (get<0>(topLeft) + numCols) && y >= get<1>(topLeft) && y < (get<1>(topLeft) + numRows))
+	if (x >= topLeft.x && x < (topLeft.x + numCols) && y >= topLeft.y && y < (topLeft.y + numRows))
 	{
 		// Calculate screen offsets
-		int screen_x = (x - get<0>(topLeft)) * (CELL_SIZE + 1);
-		int screen_y = (y - get<1>(topLeft)) * (CELL_SIZE + 1);
+		int screen_x = (x - topLeft.x) * (CELL_SIZE + 1);
+		int screen_y = (y - topLeft.y) * (CELL_SIZE + 1);
 		/*
 		Draw the cell
 		*/
@@ -126,7 +148,7 @@ void moveScreen(cellLoc centerPoint)
 {
 	numRows = HEIGHT / (CELL_SIZE + 1);
 	numCols = WIDTH / (CELL_SIZE + 1);
-	topLeft = { (get<0>(centerPoint) - (numCols / 2)), (get<1>(centerPoint) - (numRows / 2)) };
+	topLeft = { (centerPoint.x - (numCols / 2)), (centerPoint.y - (numRows / 2)) };
 	// Clear the screen
 	/*
 	Clear the screen
@@ -134,9 +156,9 @@ void moveScreen(cellLoc centerPoint)
 	// Redraw active cells
 	for (map<cellLoc, cellData>::iterator it = cells.begin(); it != cells.end(); it++)
 	{
-		if (get<CURR_STATE>(it->second) == 1)
+		if (it->second.currState == 1)
 		{
-			drawCell(get<0>(it->first), get<1>(it->first), 1);
+			drawCell(it->first.x, it->first.y, 1);
 		}
 	}
 	/*
@@ -150,7 +172,7 @@ void removeCells()
 	// Remove inactive cells with no neighbors
 	for (set<cellLoc>::iterator loc = cellsToRemove.begin(); loc != cellsToRemove.end(); loc++)
 	{
-		if (cells.find(*loc) != cells.end() && get<CURR_STATE>(cells[*loc]) == 0 && get<NUM_NEIGHBORS>(cells[*loc]) == 0)
+		if (cells.find(*loc) != cells.end() && cells[*loc].currState == 0 && cells[*loc].numNeighbors == 0)
 		{
 			cells.erase(*loc);
 		}
@@ -162,17 +184,17 @@ void setNextState()
 {
 	for (map<cellLoc, cellData>::iterator it = cells.begin(); it != cells.end(); it++)
 	{
-		if (get<CURR_STATE>(it->second) == 1)
+		if (it->second.currState == 1)
 		{
-			if (rules.surviveList.find(get<NUM_NEIGHBORS>(it->second)) == rules.surviveList.end())
+			if (rules.surviveList.find(it->second.numNeighbors) == rules.surviveList.end())
 			{
-				get<NEXT_STATE>(it->second) = 0;
+				it->second.nextState = 0;
 				cellsToUpdate.insert(it->first);
 			}
 		}
-		else if (rules.birthList.find(get<NUM_NEIGHBORS>(it->second)) != rules.birthList.end())
+		else if (rules.birthList.find(it->second.numNeighbors) != rules.birthList.end())
 		{
-			get<NEXT_STATE>(it->second) = 1;
+			it->second.nextState = 1;
 			cellsToUpdate.insert(it->first);
 		}
 	}
@@ -181,8 +203,8 @@ void setNextState()
 
 void toggleCell(cellLoc mousePos)
 {
-	int x = get<0>(mousePos);	// / (CELL_SIZE + 1) + get<0>(topLeft);
-	int y = get<1>(mousePos);	// / (CELL_SIZE + 1) + get<1>(topLeft);
+	int x = mousePos.x;	// / (CELL_SIZE + 1) + topLeft.x;
+	int y = mousePos.y;	// / (CELL_SIZE + 1) + topLeft.y;
 	if (cells.find({ x, y }) == cells.end())
 	{
 		// Create new cell
@@ -190,7 +212,7 @@ void toggleCell(cellLoc mousePos)
 	}
 	else
 	{
-		get<NEXT_STATE>(cells[{x, y}]) = 1 - get<CURR_STATE>(cells[{x, y}]);
+		cells[{x, y}].nextState = 1 - cells[{x, y}].currState;
 	}
 	updateCell({ x, y });
 	removeCells();
@@ -202,11 +224,10 @@ void toggleCell(cellLoc mousePos)
 
 void updateCell(cellLoc cell)
 {
-	int x0, y0;
-	tie(x0, y0) = cell;
-	get<CURR_STATE>(cells[cell]) = get<NEXT_STATE>(cells[cell]);
+	int x0 = cell.x, y0 = cell.y;
+	cells[cell].currState = cells[cell].nextState;
 	// Update each of current cell's neighbors' num_neighbors based on current cell's state
-	if (get<CURR_STATE>(cells[cell]) == 1)
+	if (cells[cell].currState == 1)
 	{
 		for (int y = y0 - 1; y < y0 + 2; y++)
 		{
@@ -220,11 +241,11 @@ void updateCell(cellLoc cell)
 				else
 				{
 					// Add 1 to neighbor count
-					get<NUM_NEIGHBORS>(cells[{x, y}])++;
+					cells[{x, y}].numNeighbors++;
 				}
 			}
 		}
-		get<NUM_NEIGHBORS>(cells[{x0, y0}])--;  // Don't count self
+		cells[{x0, y0}].numNeighbors--;  // Don't count self
 		liveCells++;
 	}
 	else
@@ -235,9 +256,9 @@ void updateCell(cellLoc cell)
 			{
 				if (x != x0 || y != y0)
 				{
-					get<NUM_NEIGHBORS>(cells[{x, y}])--;
+					cells[{x, y}].numNeighbors--;
 				}
-				if (get<CURR_STATE>(cells[{x, y}]) == 0 && get<NUM_NEIGHBORS>(cells[{x, y}]) == 0)
+				if (cells[{x, y}].currState == 0 && cells[{x, y}].numNeighbors == 0)
 				{
 					// Neighbor is inactive and has no active neighbors, so remove
 					cellsToRemove.insert({ x, y });
@@ -246,7 +267,7 @@ void updateCell(cellLoc cell)
 		}
 		liveCells--;
 	}
-	drawCell(x0, y0, get<CURR_STATE>(cells[cell]));
+	drawCell(x0, y0, cells[cell].currState);
 }
 
 
@@ -267,7 +288,7 @@ int main()
 	/*
 	*/
 
-	srand(time(0));
+	srand((unsigned int)time(0));	// Random seed
 	bool running = true;
 	bool paused = false;	// Should normally be initialized to true
 	bool singleFrame = false;
