@@ -4,13 +4,10 @@
 #include <string>
 #include <time.h>
 #include <tuple>
-
+#define SDL_MAIN_HANDLED
+#include "SDL.h"
 
 using namespace std;
-
-
-//typedef tuple<int, int> cellLoc;
-//typedef tuple<int, int, int> cellData;
 
 struct cellLoc
 {
@@ -18,12 +15,12 @@ struct cellLoc
 
 	// I don't pretend to quite understand the following, but it is necessary for this struct to work as the key to a map.
 	// Adapted from https://dawnarc.com/2019/09/c-how-to-use-a-struct-as-key-in-a-std-map/
-	bool operator==(const cellLoc& o) const
+	bool operator == (const cellLoc& o) const
 	{
 		return x == o.x && y == o.y;
 	}
 
-	bool operator<(const cellLoc& o)const
+	bool operator < (const cellLoc& o) const
 	{
 		return x < o.x || (x == o.x && y < o.y);
 	}
@@ -34,12 +31,10 @@ struct cellData
 	int currState, nextState, numNeighbors;
 };
 
-
 struct ruleSet
 {
 	set<int> birthList, surviveList;
 };
-
 
 // Constants
 const int WIDTH = 1900;
@@ -47,17 +42,11 @@ const int HEIGHT = 1000;
 const int CELL_SIZE = 7;
 const float FPS = 1000.0;
 
-const int CURR_STATE = 0;
-const int NEXT_STATE = 1;
-const int NUM_NEIGHBORS = 2;
-
-
 // Initial display range
 int numRows = HEIGHT / (CELL_SIZE + 1);
 int numCols = WIDTH / (CELL_SIZE + 1);
 cellLoc topLeft = { -(numCols / 2), -(numRows / 2) };
 cellLoc	center = { 0, 0 };
-
 
 map<string, ruleSet> RULES =
 {
@@ -83,16 +72,15 @@ map<string, ruleSet> RULES =
 	{"Walled Cities" , {{3, 6, 7, 8}, {2, 3, 5, 6, 7, 8}}}
 };
 
+// Select ruleset to use
 string ruleName = "Conway's Game of Life";
 ruleSet rules = RULES[ruleName];
-
 
 map<cellLoc, cellData> cells;
 set<cellLoc> cellsToUpdate, cellsToRemove;
 
 int frame = 0;
 int liveCells = 0;
-
 
 // Function declarations
 void createRandom();
@@ -103,8 +91,7 @@ void setNextState();
 void toggleCell(cellLoc mousePos);
 void updateCell(cellLoc cell);
 
-
-void createRandom() 
+void createRandom()
 {
 	int gridX, gridY;
 	// Create random cells within visible window
@@ -112,7 +99,7 @@ void createRandom()
 	{
 		gridX = (rand() % numCols) + topLeft.x;
 		gridY = (rand() % numRows) + topLeft.y;
-		if (cells.find({gridX, gridY}) == cells.end())
+		if (cells.find({ gridX, gridY }) == cells.end())
 		{
 			cells[{gridX, gridY}] = { 1, 1, 0 };
 		}
@@ -120,13 +107,12 @@ void createRandom()
 		{
 			cells[{gridX, gridY}].nextState = 1 - cells[{gridX, gridY}].currState;
 		}
-		updateCell({gridX, gridY});
+		updateCell({ gridX, gridY });
 	}
 	/*
 	Flip screen
 	*/
 }
-
 
 void drawCell(int x, int y, int state)
 {
@@ -141,8 +127,6 @@ void drawCell(int x, int y, int state)
 		*/
 	}
 }
-
-
 
 void moveScreen(cellLoc centerPoint)
 {
@@ -166,7 +150,6 @@ void moveScreen(cellLoc centerPoint)
 	*/
 }
 
-
 void removeCells()
 {
 	// Remove inactive cells with no neighbors
@@ -178,7 +161,6 @@ void removeCells()
 		}
 	}
 }
-
 
 void setNextState()
 {
@@ -200,7 +182,6 @@ void setNextState()
 	}
 }
 
-
 void toggleCell(cellLoc mousePos)
 {
 	int x = mousePos.x;	// / (CELL_SIZE + 1) + topLeft.x;
@@ -220,7 +201,6 @@ void toggleCell(cellLoc mousePos)
 	Flip screen
 	*/
 }
-
 
 void updateCell(cellLoc cell)
 {
@@ -269,7 +249,6 @@ void updateCell(cellLoc cell)
 	}
 	drawCell(x0, y0, cells[cell].currState);
 }
-
 
 int main()
 {
@@ -350,4 +329,5 @@ int main()
 			cout << "Frame: " << frame << "   Cells: " << liveCells << endl;
 		}
 	}
+	return 0;
 }
