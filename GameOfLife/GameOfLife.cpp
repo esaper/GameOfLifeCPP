@@ -36,11 +36,18 @@ struct ruleSet
 	set<int> birthList, surviveList;
 };
 
+struct color
+{
+	unsigned int r, g, b;
+};
+
+color colors[] = { {0, 0, 0}, {255, 255, 255} };
+
 // Constants
-const int WIDTH = 1900;
-const int HEIGHT = 1000;
-const int CELL_SIZE = 7;
-const float FPS = 1000.0;
+const unsigned int WIDTH = 1900;
+const unsigned int HEIGHT = 1000;
+unsigned int CELL_SIZE = 5;
+unsigned int FRAME_DELAY = 0;
 
 // Initial display range
 int numRows = HEIGHT / (CELL_SIZE + 1);
@@ -91,6 +98,18 @@ void setNextState();
 void toggleCell(cellLoc mousePos);
 void updateCell(cellLoc cell);
 
+// Graphics
+SDL_Window* window = NULL;
+SDL_Surface* surface = NULL;
+
+
+long timediff(clock_t t1, clock_t t2) {
+	long elapsed;
+	elapsed = ((double)t2 - t1) / CLOCKS_PER_SEC * 1000;
+	return elapsed;
+}
+
+
 void createRandom()
 {
 	int gridX, gridY;
@@ -109,9 +128,7 @@ void createRandom()
 		}
 		updateCell({ gridX, gridY });
 	}
-	/*
-	Flip screen
-	*/
+	SDL_UpdateWindowSurface(window);
 }
 
 void drawCell(int x, int y, int state)
@@ -120,11 +137,22 @@ void drawCell(int x, int y, int state)
 	if (x >= topLeft.x && x < (topLeft.x + numCols) && y >= topLeft.y && y < (topLeft.y + numRows))
 	{
 		// Calculate screen offsets
-		int screen_x = (x - topLeft.x) * (CELL_SIZE + 1);
-		int screen_y = (y - topLeft.y) * (CELL_SIZE + 1);
-		/*
-		Draw the cell
-		*/
+		int screen_x = (x - topLeft.x); // *(CELL_SIZE + 1);
+		int screen_y = (y - topLeft.y); // *(CELL_SIZE + 1);
+
+		// Draw the cell
+		Uint8* pixel_ptr = (Uint8*)surface->pixels + (screen_y * (CELL_SIZE + 1) * WIDTH + screen_x * (CELL_SIZE + 1)) * 4;
+
+		for (unsigned int i = 0; i < CELL_SIZE; i++)
+		{
+			for (unsigned int j = 0; j < CELL_SIZE; j++)
+			{
+				*(pixel_ptr + j * 4) = colors[state].r;
+				*(pixel_ptr + j * 4 + 1) = colors[state].g;
+				*(pixel_ptr + j * 4 + 2) = colors[state].b;
+			}
+			pixel_ptr += WIDTH * 4;
+		}
 	}
 }
 
@@ -134,9 +162,8 @@ void moveScreen(cellLoc centerPoint)
 	numCols = WIDTH / (CELL_SIZE + 1);
 	topLeft = { (centerPoint.x - (numCols / 2)), (centerPoint.y - (numRows / 2)) };
 	// Clear the screen
-	/*
-	Clear the screen
-	*/
+	SDL_memset(surface->pixels, 0, surface->h * surface->pitch);
+
 	// Redraw active cells
 	for (map<cellLoc, cellData>::iterator it = cells.begin(); it != cells.end(); it++)
 	{
@@ -145,9 +172,7 @@ void moveScreen(cellLoc centerPoint)
 			drawCell(it->first.x, it->first.y, 1);
 		}
 	}
-	/*
-	Flip screen
-	*/
+	SDL_UpdateWindowSurface(window);
 }
 
 void removeCells()
@@ -184,8 +209,8 @@ void setNextState()
 
 void toggleCell(cellLoc mousePos)
 {
-	int x = mousePos.x;	// / (CELL_SIZE + 1) + topLeft.x;
-	int y = mousePos.y;	// / (CELL_SIZE + 1) + topLeft.y;
+	int x = mousePos.x / (CELL_SIZE + 1) + topLeft.x;
+	int y = mousePos.y / (CELL_SIZE + 1) + topLeft.y;
 	if (cells.find({ x, y }) == cells.end())
 	{
 		// Create new cell
@@ -197,9 +222,7 @@ void toggleCell(cellLoc mousePos)
 	}
 	updateCell({ x, y });
 	removeCells();
-	/*
-	Flip screen
-	*/
+	SDL_UpdateWindowSurface(window);
 }
 
 void updateCell(cellLoc cell)
@@ -252,31 +275,93 @@ void updateCell(cellLoc cell)
 
 int main()
 {
-	/*
-	Initialize window
-	*/
+	// Initialize window
+	SDL_Init(SDL_INIT_VIDEO);
+	window = SDL_CreateWindow("Conway's Game of Life", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+	surface = SDL_GetWindowSurface(window);
 
-	/*
-	Glider
-	*/
-	toggleCell({ 0, 0 });
-	toggleCell({ 1, 0 });
-	toggleCell({ 2, 0 });
-	toggleCell({ 2, 1 });
-	toggleCell({ 1, 2 });
-	/*
-	*/
-
+	string title;
 	srand((unsigned int)time(0));	// Random seed
 	bool running = true;
-	bool paused = false;	// Should normally be initialized to true
+	bool paused = true;
 	bool singleFrame = false;
+	clock_t t1, t2;
+	long elapsed;
+
+	t1 = clock();
+
+	// Event Handler
+	SDL_Event event;
 
 	while (running)
 	{
-		/*
-		Check events
-		*/
+		// Check events
+		while (SDL_PollEvent(&event))
+		{
+			switch (event.type)
+			{
+			case SDL_QUIT:
+				running = false;
+				break;
+			case SDL_KEYDOWN:
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_ESCAPE:
+					running = false;
+					break;
+				case SDLK_SPACE:
+					paused = !paused;
+					break;
+				// Arrow keys move display over 10%
+				case SDLK_LEFT:
+					center = { center.x - (numCols / 10), center.y };
+					moveScreen(center);
+					break;
+				case SDLK_RIGHT:
+					center = { center.x + (numCols / 10), center.y };
+					moveScreen(center);
+					break;
+				case SDLK_UP:
+					center = { center.x, center.y - (numCols / 10) };
+					moveScreen(center);
+					break;
+				case SDLK_DOWN:
+					center = { center.x, center.y + (numCols / 10) };
+					moveScreen(center);
+					break;
+				// PgUp/PgDn change block size
+				case SDLK_PAGEUP:
+					CELL_SIZE++;
+					moveScreen(center);
+					break;
+				case SDLK_PAGEDOWN:
+					if (CELL_SIZE > 1)
+					{
+						CELL_SIZE--;
+						moveScreen(center);
+					}
+					break;
+				// +/- Change frame rate
+				case SDLK_KP_PLUS:
+					FRAME_DELAY /= 1.2;
+					break;
+				case SDLK_KP_MINUS:
+					FRAME_DELAY *= 1.2;
+					break;
+				case SDLK_r:
+					createRandom();
+					break;
+				// Advance a single frame
+				case SDLK_s:
+					paused = false;
+					singleFrame = true;
+					break;
+				}
+			case SDL_MOUSEBUTTONDOWN:
+				toggleCell({ event.button.x, event.button.y });
+			}
+		}
+
 
 		if (!paused)
 		{
@@ -319,15 +404,28 @@ int main()
 				singleFrame = false;
 			}
 
+			SDL_UpdateWindowSurface(window);
+			SDL_Delay(FRAME_DELAY);
+
+			t2 = clock();
+			elapsed = timediff(t1, t2);
+			title = ruleName + "    Current Frame: " + to_string(frame) + "     FPS: " + to_string(1000.0 / elapsed) + "     Live Cells: " + to_string(liveCells) + "     Eval List: " + to_string(cells.size()) +
+				"     Updates: " + to_string(cellsToUpdate.size()) + "     Center: (" + to_string(center.x) + ", " + to_string(center.y) + ")";
+			SDL_SetWindowTitle(window, title.c_str());
+			t1 = t2;
+
 			/*
-			Update display
-			Update window caption
+			if (frame % 100 == 0)
+			{
+				cout << "Frame: " << frame << "   Cells: " << liveCells << endl;
+			}
 			*/
 		}
-		if (frame % 1000 == 0)
-		{
-			cout << "Frame: " << frame << "   Cells: " << liveCells << endl;
-		}
 	}
+
+	// Shut down SDL
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+
 	return 0;
 }
