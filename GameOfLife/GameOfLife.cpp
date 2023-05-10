@@ -3,7 +3,6 @@
 #include <set>
 #include <string>
 #include <time.h>
-#include <tuple>
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
 
@@ -41,7 +40,7 @@ struct color
 	unsigned int r, g, b;
 };
 
-color colors[] = { {0, 0, 0}, {255, 255, 255} };
+const color colors[] = { {0, 0, 0}, {255, 255, 255} };
 
 // Constants
 const unsigned int WIDTH = 1900;
@@ -80,8 +79,8 @@ map<string, ruleSet> RULES =
 };
 
 // Select ruleset to use
-string ruleName = "Conway's Game of Life";
-ruleSet rules = RULES[ruleName];
+const string ruleName = "Conway's Game of Life";
+const ruleSet rules = RULES[ruleName];
 
 map<cellLoc, cellData> cells;
 set<cellLoc> cellsToUpdate, cellsToRemove;
@@ -105,7 +104,7 @@ SDL_Surface* surface = NULL;
 
 long timediff(clock_t t1, clock_t t2) {
 	long elapsed;
-	elapsed = ((double)t2 - t1) / CLOCKS_PER_SEC * 1000;
+	elapsed = ((long)t2 - t1) / CLOCKS_PER_SEC * 1000;
 	return elapsed;
 }
 
@@ -312,7 +311,7 @@ int main()
 				case SDLK_SPACE:
 					paused = !paused;
 					break;
-				// Arrow keys move display over 10%
+					// Arrow keys move display over 10%
 				case SDLK_LEFT:
 					center = { center.x - (numCols / 10), center.y };
 					moveScreen(center);
@@ -329,7 +328,7 @@ int main()
 					center = { center.x, center.y + (numCols / 10) };
 					moveScreen(center);
 					break;
-				// PgUp/PgDn change block size
+					// PgUp/PgDn change block size
 				case SDLK_PAGEUP:
 					CELL_SIZE++;
 					moveScreen(center);
@@ -341,7 +340,7 @@ int main()
 						moveScreen(center);
 					}
 					break;
-				// +/- Change frame rate
+					// +/- Change frame rate
 				case SDLK_KP_PLUS:
 					FRAME_DELAY /= 1.2;
 					break;
@@ -351,7 +350,7 @@ int main()
 				case SDLK_r:
 					createRandom();
 					break;
-				// Advance a single frame
+					// Advance a single frame
 				case SDLK_s:
 					paused = false;
 					singleFrame = true;
